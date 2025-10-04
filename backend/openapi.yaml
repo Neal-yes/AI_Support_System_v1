@@ -164,6 +164,54 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
+  /auth/refresh:
+    post:
+      tags:
+        - 认证
+      summary: 刷新Token
+      description: 使用Refresh Token刷新Access Token
+      operationId: refreshToken
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - refresh_token
+              properties:
+                refresh_token:
+                  type: string
+                  description: Refresh Token
+                  example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+      responses:
+        '200':
+          description: 刷新成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: Token刷新成功
+                  data:
+                    type: object
+                    properties:
+                      access_token:
+                        type: string
+                        description: 新的Access Token
+                      refresh_token:
+                        type: string
+                        description: 新的Refresh Token
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   # ==================== 对话模块 ====================
   /chat/conversations:
     get:
@@ -355,6 +403,46 @@ paths:
                         $ref: '#/components/schemas/Message'
                       aiMessage:
                         $ref: '#/components/schemas/Message'
+
+  /chat/feedback:
+    post:
+      tags:
+        - 对话
+      summary: 提交反馈
+      description: 用户对AI回答的反馈（点赞/点踩）
+      operationId: submitFeedback
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - message_id
+                - feedback_type
+              properties:
+                message_id:
+                  type: string
+                  description: 消息ID
+                feedback_type:
+                  type: string
+                  enum: [like, dislike, flag]
+                  description: 反馈类型
+                  example: like
+                comment:
+                  type: string
+                  description: 反馈备注
+      responses:
+        '200':
+          description: 反馈成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
 
   # ==================== 知识库模块 ====================
   /knowledge/list:
@@ -623,6 +711,82 @@ paths:
               schema:
                 type: string
                 format: binary
+
+  /knowledge/preview/{id}:
+    get:
+      tags:
+        - 知识库
+      summary: 预览知识
+      description: 预览指定知识的详细内容（用于前端预览功能）
+      operationId: previewKnowledge
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: '#/components/schemas/Knowledge'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /knowledge/reindex:
+    post:
+      tags:
+        - 知识库
+      summary: 重建索引
+      description: 重建向量库和搜索引擎索引（运维功能）
+      operationId: reindexKnowledge
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                knowledge_ids:
+                  type: array
+                  description: 指定知识ID列表（为空则重建全部）
+                  items:
+                    type: string
+      responses:
+        '200':
+          description: 重建成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: 索引重建任务已启动
+                  data:
+                    type: object
+                    properties:
+                      task_id:
+                        type: string
+                        description: 异步任务ID
+                      total_count:
+                        type: integer
+                        description: 待重建数量
 
   # ==================== 智能配置模块 ====================
   /intelligent/intents:
@@ -1089,6 +1253,68 @@ paths:
                         type: number
                         description: 执行时间（毫秒）
                         example: 45
+
+  /mysql/execute:
+    post:
+      tags:
+        - MySQL配置
+      summary: 执行SQL语句
+      description: 由智能对话系统调用，执行配置好的SQL语句
+      operationId: executeSQL
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - statementId
+              properties:
+                statementId:
+                  type: string
+                  description: SQL语句ID
+                params:
+                  type: object
+                  description: 参数值
+                  additionalProperties:
+                    type: string
+                context:
+                  type: object
+                  description: 上下文信息（用于审计）
+                  properties:
+                    conversation_id:
+                      type: string
+                    message_id:
+                      type: string
+      responses:
+        '200':
+          description: 执行成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  data:
+                    type: object
+                    properties:
+                      success:
+                        type: boolean
+                      rows:
+                        type: array
+                        items:
+                          type: object
+                          additionalProperties: true
+                      row_count:
+                        type: integer
+                      execution_time_ms:
+                        type: integer
+        '403':
+          $ref: '#/components/responses/Forbidden'
 
   /mysql/logs:
     get:
@@ -1697,6 +1923,41 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessResponse'
+
+  /users/assign-role:
+    post:
+      tags:
+        - 用户管理
+      summary: 分配角色
+      description: 为用户分配角色
+      operationId: assignRole
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - user_id
+                - role_id
+              properties:
+                user_id:
+                  type: string
+                  description: 用户ID
+                role_id:
+                  type: string
+                  description: 角色ID
+      responses:
+        '200':
+          description: 分配成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
 
   /users/login-logs:
     get:
@@ -2308,6 +2569,95 @@ paths:
                         type: array
                         items:
                           $ref: '#/components/schemas/SystemLog'
+
+  # ==================== 运维监控 ====================
+  /health:
+    get:
+      tags:
+        - 系统配置
+      summary: 健康检查
+      description: 检查系统各组件健康状态
+      operationId: healthCheck
+      responses:
+        '200':
+          description: 系统健康
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: healthy
+                  timestamp:
+                    type: string
+                    format: date-time
+                  components:
+                    type: object
+                    properties:
+                      database:
+                        type: object
+                        properties:
+                          status:
+                            type: string
+                            example: up
+                      redis:
+                        type: object
+                        properties:
+                          status:
+                            type: string
+                            example: up
+                      qdrant:
+                        type: object
+                        properties:
+                          status:
+                            type: string
+                            example: up
+                      opensearch:
+                        type: object
+                        properties:
+                          status:
+                            type: string
+                            example: up
+                      ollama:
+                        type: object
+                        properties:
+                          status:
+                            type: string
+                            example: up
+        '503':
+          description: 系统不健康
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: unhealthy
+                  errors:
+                    type: array
+                    items:
+                      type: string
+
+  /metrics:
+    get:
+      tags:
+        - 系统配置
+      summary: Prometheus指标
+      description: 获取Prometheus格式的系统指标
+      operationId: getMetrics
+      responses:
+        '200':
+          description: 成功
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: |
+                  # HELP api_requests_total Total API requests
+                  # TYPE api_requests_total counter
+                  api_requests_total{method="GET",path="/api/chat/message"} 1234
 
 # ==================== 数据模型 ====================
 components:
