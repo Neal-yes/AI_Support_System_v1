@@ -1,0 +1,3102 @@
+openapi: 3.0.3
+info:
+  title: 企业智能客服系统 API
+  description: |
+    企业内部智能问答客服系统的后端API接口文档
+    
+    ## 功能模块
+    - 认证授权：用户登录、Token验证
+    - 智能对话：消息发送、对话管理
+    - 知识库管理：知识CRUD、导入导出
+    - 智能配置：意图管理、规则配置
+    - MySQL配置：SQL语句管理、测试执行
+    - 数据权限：部门管理、权限绑定
+    - 用户管理：账号管理、角色权限
+    - 数据统计：数据看板、报表导出
+    - 系统配置：基础设置、接口配置
+    
+    ## 认证方式
+    使用JWT Bearer Token认证，在请求头中携带：
+    ```
+    Authorization: Bearer <token>
+    ```
+    
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: 759193359@qq.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8080/api
+    description: 本地开发服务器
+  - url: https://api.your-domain.com/api
+    description: 生产环境服务器
+
+tags:
+  - name: 认证
+    description: 用户认证和授权相关接口
+  - name: 对话
+    description: 智能对话相关接口
+  - name: 知识库
+    description: 知识库管理相关接口
+  - name: 智能配置
+    description: 智能问答配置相关接口
+  - name: MySQL配置
+    description: MySQL语句配置相关接口
+  - name: 数据权限
+    description: 数据访问权限相关接口
+  - name: 用户管理
+    description: 用户和角色管理相关接口
+  - name: 数据统计
+    description: 数据统计分析相关接口
+  - name: 系统配置
+    description: 系统配置相关接口
+
+paths:
+  # ==================== 认证模块 ====================
+  /auth/login:
+    post:
+      tags:
+        - 认证
+      summary: 用户登录
+      description: 使用用户名和密码登录系统，返回JWT Token
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - username
+                - password
+              properties:
+                username:
+                  type: string
+                  description: 用户名
+                  example: admin
+                password:
+                  type: string
+                  format: password
+                  description: 密码
+                  example: admin123
+      responses:
+        '200':
+          description: 登录成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: 登录成功
+                  data:
+                    type: object
+                    properties:
+                      token:
+                        type: string
+                        description: JWT Token
+                        example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                      user:
+                        $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /auth/logout:
+    post:
+      tags:
+        - 认证
+      summary: 用户登出
+      description: 退出登录，使Token失效
+      operationId: logout
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 登出成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/verify:
+    get:
+      tags:
+        - 认证
+      summary: 验证Token
+      description: 验证当前Token是否有效
+      operationId: verifyToken
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Token有效
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: Token有效
+                  data:
+                    type: object
+                    properties:
+                      valid:
+                        type: boolean
+                        example: true
+                      user:
+                        $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ==================== 对话模块 ====================
+  /chat/conversations:
+    get:
+      tags:
+        - 对话
+      summary: 获取对话列表
+      description: 获取当前用户的所有对话
+      operationId: getConversations
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: search
+          in: query
+          description: 搜索关键词
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: 成功
+                  data:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                        example: 10
+                      list:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Conversation'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags:
+        - 对话
+      summary: 创建新对话
+      description: 创建一个新的对话
+      operationId: createConversation
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                  description: 对话标题
+                  example: 新的对话
+      responses:
+        '200':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: 创建成功
+                  data:
+                    $ref: '#/components/schemas/Conversation'
+
+  /chat/conversations/{conversationId}:
+    get:
+      tags:
+        - 对话
+      summary: 获取对话详情
+      description: 获取指定对话的详细信息和消息历史
+      operationId: getConversation
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  data:
+                    type: object
+                    properties:
+                      conversation:
+                        $ref: '#/components/schemas/Conversation'
+                      messages:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Message'
+
+    delete:
+      tags:
+        - 对话
+      summary: 删除对话
+      description: 删除指定的对话
+      operationId: deleteConversation
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 删除成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+
+  /chat/message:
+    post:
+      tags:
+        - 对话
+      summary: 发送消息
+      description: 向指定对话发送消息，返回AI回复
+      operationId: sendMessage
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - conversationId
+                - content
+              properties:
+                conversationId:
+                  type: string
+                  description: 对话ID
+                content:
+                  type: string
+                  description: 消息内容
+                  example: 如何申请加班？
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  data:
+                    type: object
+                    properties:
+                      userMessage:
+                        $ref: '#/components/schemas/Message'
+                      aiMessage:
+                        $ref: '#/components/schemas/Message'
+
+  # ==================== 知识库模块 ====================
+  /knowledge/list:
+    get:
+      tags:
+        - 知识库
+      summary: 获取知识列表
+      description: 分页获取知识库列表，支持搜索和筛选
+      operationId: getKnowledgeList
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: search
+          in: query
+          description: 搜索关键词
+          schema:
+            type: string
+        - name: status
+          in: query
+          description: 状态筛选
+          schema:
+            type: string
+            enum: [all, draft, published, offline]
+        - name: category
+          in: query
+          description: 分类筛选
+          schema:
+            type: string
+        - name: startDate
+          in: query
+          description: 开始日期
+          schema:
+            type: string
+            format: date
+        - name: endDate
+          in: query
+          description: 结束日期
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  data:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                        example: 150
+                      list:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Knowledge'
+
+  /knowledge/add:
+    post:
+      tags:
+        - 知识库
+      summary: 新增知识
+      description: 创建新的知识条目
+      operationId: addKnowledge
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KnowledgeInput'
+      responses:
+        '200':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: 创建成功
+                  data:
+                    $ref: '#/components/schemas/Knowledge'
+
+  /knowledge/{id}:
+    get:
+      tags:
+        - 知识库
+      summary: 获取知识详情
+      description: 获取指定知识的详细信息
+      operationId: getKnowledge
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: '#/components/schemas/Knowledge'
+
+    put:
+      tags:
+        - 知识库
+      summary: 更新知识
+      description: 更新指定知识的信息
+      operationId: updateKnowledge
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KnowledgeInput'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+
+    delete:
+      tags:
+        - 知识库
+      summary: 删除知识
+      description: 删除指定的知识条目
+      operationId: deleteKnowledge
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 删除成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+
+  /knowledge/import:
+    post:
+      tags:
+        - 知识库
+      summary: 批量导入知识
+      description: 支持Excel、CSV、Word、PPT、MD格式的文档导入
+      operationId: importKnowledge
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: 导入的文件
+                category:
+                  type: string
+                  description: 默认分类
+      responses:
+        '200':
+          description: 导入成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: 导入成功
+                  data:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                        description: 总导入数量
+                        example: 50
+                      success:
+                        type: integer
+                        description: 成功数量
+                        example: 48
+                      failed:
+                        type: integer
+                        description: 失败数量
+                        example: 2
+
+  /knowledge/export:
+    get:
+      tags:
+        - 知识库
+      summary: 批量导出知识
+      description: 导出知识为Excel或CSV格式
+      operationId: exportKnowledge
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: format
+          in: query
+          description: 导出格式
+          schema:
+            type: string
+            enum: [excel, csv]
+            default: excel
+        - name: ids
+          in: query
+          description: 要导出的知识ID列表（逗号分隔）
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 导出成功
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+
+  # ==================== 智能配置模块 ====================
+  /intelligent/intents:
+    get:
+      tags:
+        - 智能配置
+      summary: 获取意图列表
+      description: 获取所有意图配置
+      operationId: getIntents
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [all, enabled, disabled]
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  data:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                      list:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Intent'
+
+    post:
+      tags:
+        - 智能配置
+      summary: 新增意图
+      description: 创建新的意图配置
+      operationId: createIntent
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IntentInput'
+      responses:
+        '200':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: '#/components/schemas/Intent'
+
+  /intelligent/intents/{id}:
+    put:
+      tags:
+        - 智能配置
+      summary: 更新意图
+      description: 更新指定意图配置
+      operationId: updateIntent
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IntentInput'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+
+    delete:
+      tags:
+        - 智能配置
+      summary: 删除意图
+      description: 删除指定意图
+      operationId: deleteIntent
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 删除成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+
+  /intelligent/rules:
+    get:
+      tags:
+        - 智能配置
+      summary: 获取问答规则列表
+      description: 获取所有问答规则配置
+      operationId: getRules
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: type
+          in: query
+          description: 规则类型
+          schema:
+            type: string
+            enum: [keyword, context, fallback]
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  data:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                      list:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Rule'
+
+    post:
+      tags:
+        - 智能配置
+      summary: 新增问答规则
+      description: 创建新的问答规则
+      operationId: createRule
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RuleInput'
+      responses:
+        '200':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: '#/components/schemas/Rule'
+
+  /intelligent/test:
+    post:
+      tags:
+        - 智能配置
+      summary: 测试意图识别
+      description: 测试指定文本的意图识别结果
+      operationId: testIntent
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - text
+              properties:
+                text:
+                  type: string
+                  description: 测试文本
+                  example: 如何申请加班？
+      responses:
+        '200':
+          description: 测试结果
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  data:
+                    type: object
+                    properties:
+                      intent:
+                        type: string
+                        example: overtime_application
+                      confidence:
+                        type: number
+                        format: float
+                        example: 0.95
+                      matchedRule:
+                        type: string
+                        example: 关键词规则：加班
+
+  # ==================== MySQL配置模块 ====================
+  /mysql/statements:
+    get:
+      tags:
+        - MySQL配置
+      summary: 获取SQL语句列表
+      description: 获取所有配置的SQL语句
+      operationId: getSQLStatements
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: category
+          in: query
+          description: 分类筛选
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [all, enabled, disabled]
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  data:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                      list:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/SQLStatement'
+
+    post:
+      tags:
+        - MySQL配置
+      summary: 新增SQL语句
+      description: 创建新的SQL语句配置
+      operationId: createSQLStatement
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SQLStatementInput'
+      responses:
+        '200':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: '#/components/schemas/SQLStatement'
+
+  /mysql/statements/{id}:
+    get:
+      tags:
+        - MySQL配置
+      summary: 获取SQL语句详情
+      description: 获取指定SQL语句的详细信息
+      operationId: getSQLStatement
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: '#/components/schemas/SQLStatement'
+
+    put:
+      tags:
+        - MySQL配置
+      summary: 更新SQL语句
+      description: 更新指定SQL语句配置
+      operationId: updateSQLStatement
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SQLStatementInput'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+
+    delete:
+      tags:
+        - MySQL配置
+      summary: 删除SQL语句
+      description: 删除指定SQL语句
+      operationId: deleteSQLStatement
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 删除成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+
+  /mysql/test:
+    post:
+      tags:
+        - MySQL配置
+      summary: 测试SQL语句
+      description: 在线测试SQL语句执行
+      operationId: testSQL
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - statementId
+              properties:
+                statementId:
+                  type: string
+                  description: SQL语句ID
+                params:
+                  type: object
+                  description: 参数值
+                  additionalProperties:
+                    type: string
+                  example:
+                    dept_id: "001"
+                    month: "2025-01"
+      responses:
+        '200':
+          description: 执行成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  data:
+                    type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: true
+                      rows:
+                        type: array
+                        items:
+                          type: object
+                          additionalProperties: true
+                      rowCount:
+                        type: integer
+                        example: 10
+                      executionTime:
+                        type: number
+                        description: 执行时间（毫秒）
+                        example: 45
+
+  /mysql/logs:
+    get:
+      tags:
+        - MySQL配置
+      summary: 获取执行日志
+      description: 获取SQL语句执行日志
+      operationId: getSQLLogs
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: statementId
+          in: query
+          description: 筛选指定SQL语句
+          schema:
+            type: string
+        - name: status
+          in: query
+          description: 执行状态
+          schema:
+            type: string
+            enum: [all, success, failed]
+        - name: startDate
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: endDate
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  data:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                      list:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/SQLLog'
+
+  # ==================== 数据权限模块 ====================
+  /permission/departments:
+    get:
+      tags:
+        - 数据权限
+      summary: 获取部门列表
+      description: 获取所有部门信息
+      operationId: getDepartments
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [all, enabled, disabled]
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Department'
+
+    post:
+      tags:
+        - 数据权限
+      summary: 新增部门
+      description: 创建新部门
+      operationId: createDepartment
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DepartmentInput'
+      responses:
+        '200':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: '#/components/schemas/Department'
+
+  /permission/departments/{id}:
+    put:
+      tags:
+        - 数据权限
+      summary: 更新部门
+      description: 更新部门信息
+      operationId: updateDepartment
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DepartmentInput'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+
+    delete:
+      tags:
+        - 数据权限
+      summary: 删除部门
+      description: 删除指定部门
+      operationId: deleteDepartment
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 删除成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+
+  /permission/bindings:
+    get:
+      tags:
+        - 数据权限
+      summary: 获取权限绑定列表
+      description: 获取SQL语句与部门的权限绑定关系
+      operationId: getPermissionBindings
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: statementId
+          in: query
+          description: 筛选指定SQL语句
+          schema:
+            type: string
+        - name: departmentId
+          in: query
+          description: 筛选指定部门
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PermissionBinding'
+
+    post:
+      tags:
+        - 数据权限
+      summary: 绑定权限
+      description: 为SQL语句绑定部门访问权限
+      operationId: bindPermission
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - statementId
+                - departmentIds
+              properties:
+                statementId:
+                  type: string
+                  description: SQL语句ID
+                departmentIds:
+                  type: array
+                  description: 部门ID列表
+                  items:
+                    type: string
+      responses:
+        '200':
+          description: 绑定成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+
+  /permission/audit-logs:
+    get:
+      tags:
+        - 数据权限
+      summary: 获取权限审计日志
+      description: 获取权限访问审计日志
+      operationId: getAuditLogs
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: userId
+          in: query
+          schema:
+            type: string
+        - name: action
+          in: query
+          description: 操作类型
+          schema:
+            type: string
+            enum: [all, access_granted, access_denied]
+        - name: startDate
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: endDate
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  data:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                      list:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/AuditLog'
+
+  # ==================== 用户管理模块 ====================
+  /users/admins:
+    get:
+      tags:
+        - 用户管理
+      summary: 获取管理员列表
+      description: 获取所有管理员账号
+      operationId: getAdmins
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: search
+          in: query
+          description: 搜索关键词
+          schema:
+            type: string
+        - name: roleId
+          in: query
+          description: 角色筛选
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [all, enabled, disabled]
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  data:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                      list:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Admin'
+
+    post:
+      tags:
+        - 用户管理
+      summary: 新增管理员
+      description: 创建新的管理员账号
+      operationId: createAdmin
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminInput'
+      responses:
+        '200':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: '#/components/schemas/Admin'
+
+  /users/admins/{id}:
+    get:
+      tags:
+        - 用户管理
+      summary: 获取管理员详情
+      description: 获取指定管理员的详细信息
+      operationId: getAdmin
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: '#/components/schemas/Admin'
+
+    put:
+      tags:
+        - 用户管理
+      summary: 更新管理员
+      description: 更新管理员信息
+      operationId: updateAdmin
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminInput'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+
+    delete:
+      tags:
+        - 用户管理
+      summary: 删除管理员
+      description: 删除指定管理员账号
+      operationId: deleteAdmin
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 删除成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+
+  /users/admins/{id}/reset-password:
+    post:
+      tags:
+        - 用户管理
+      summary: 重置密码
+      description: 重置管理员密码
+      operationId: resetPassword
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - newPassword
+              properties:
+                newPassword:
+                  type: string
+                  format: password
+                  description: 新密码
+      responses:
+        '200':
+          description: 重置成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+
+  /users/roles:
+    get:
+      tags:
+        - 用户管理
+      summary: 获取角色列表
+      description: 获取所有角色配置
+      operationId: getRoles
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Role'
+
+    post:
+      tags:
+        - 用户管理
+      summary: 新增角色
+      description: 创建新的角色
+      operationId: createRole
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoleInput'
+      responses:
+        '200':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: '#/components/schemas/Role'
+
+  /users/roles/{id}:
+    put:
+      tags:
+        - 用户管理
+      summary: 更新角色
+      description: 更新角色信息和权限
+      operationId: updateRole
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoleInput'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+
+    delete:
+      tags:
+        - 用户管理
+      summary: 删除角色
+      description: 删除指定角色
+      operationId: deleteRole
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 删除成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+
+  /users/login-logs:
+    get:
+      tags:
+        - 用户管理
+      summary: 获取登录日志
+      description: 获取管理员登录日志
+      operationId: getLoginLogs
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: userId
+          in: query
+          schema:
+            type: string
+        - name: startDate
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: endDate
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  data:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                      list:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/LoginLog'
+
+  # ==================== 数据统计模块 ====================
+  /analytics/dashboard:
+    get:
+      tags:
+        - 数据统计
+      summary: 获取数据看板
+      description: 获取核心指标数据
+      operationId: getDashboard
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: period
+          in: query
+          description: 时间周期
+          schema:
+            type: string
+            enum: [today, week, month]
+            default: today
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: '#/components/schemas/DashboardData'
+
+  /analytics/metrics:
+    get:
+      tags:
+        - 数据统计
+      summary: 获取核心指标
+      description: 获取指定时间范围的核心指标数据
+      operationId: getMetrics
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: period
+          in: query
+          description: 时间周期
+          schema:
+            type: string
+            enum: [today, week, month, custom]
+            default: today
+        - name: startDate
+          in: query
+          description: 自定义开始日期（period=custom时必填）
+          schema:
+            type: string
+            format: date
+        - name: endDate
+          in: query
+          description: 自定义结束日期（period=custom时必填）
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: '#/components/schemas/Metrics'
+
+  /analytics/unrecognized-questions:
+    get:
+      tags:
+        - 数据统计
+      summary: 获取未识别问题TOP10
+      description: 获取未识别问题排行榜
+      operationId: getUnrecognizedQuestions
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [today, week, month, custom]
+        - name: startDate
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: endDate
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        question:
+                          type: string
+                          example: 如何更换工作电脑？
+                        count:
+                          type: integer
+                          example: 45
+                        firstAskedAt:
+                          type: string
+                          format: date-time
+
+  /analytics/sql-failures:
+    get:
+      tags:
+        - 数据统计
+      summary: 获取SQL失败记录
+      description: 获取SQL执行失败的记录列表
+      operationId: getSQLFailures
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [today, week, month, custom]
+        - name: startDate
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: endDate
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  data:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                      list:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            statementName:
+                              type: string
+                            error:
+                              type: string
+                            timestamp:
+                              type: string
+                              format: date-time
+                            userId:
+                              type: string
+                            department:
+                              type: string
+
+  /analytics/department-stats:
+    get:
+      tags:
+        - 数据统计
+      summary: 获取部门查询统计
+      description: 获取各部门的查询统计数据
+      operationId: getDepartmentStats
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [today, week, month, custom]
+        - name: startDate
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: endDate
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        departmentName:
+                          type: string
+                          example: 市场部
+                        totalQueries:
+                          type: integer
+                          example: 1234
+                        successRate:
+                          type: number
+                          format: float
+                          example: 0.95
+                        avgResponseTime:
+                          type: number
+                          format: float
+                          example: 1.5
+
+  /analytics/export:
+    post:
+      tags:
+        - 数据统计
+      summary: 导出报表
+      description: 导出数据统计报表
+      operationId: exportReport
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - reportType
+              properties:
+                reportType:
+                  type: string
+                  description: 报表类型
+                  enum: [metrics, unrecognized, sql_failures, department_stats]
+                format:
+                  type: string
+                  description: 导出格式
+                  enum: [excel, pdf]
+                  default: excel
+                period:
+                  type: string
+                  enum: [today, week, month, custom]
+                startDate:
+                  type: string
+                  format: date
+                endDate:
+                  type: string
+                  format: date
+      responses:
+        '200':
+          description: 导出成功
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+
+  # ==================== 系统配置模块 ====================
+  /system/config:
+    get:
+      tags:
+        - 系统配置
+      summary: 获取系统配置
+      description: 获取所有系统配置信息
+      operationId: getSystemConfig
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  data:
+                    $ref: '#/components/schemas/SystemConfig'
+
+    put:
+      tags:
+        - 系统配置
+      summary: 更新系统配置
+      description: 更新系统配置信息
+      operationId: updateSystemConfig
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SystemConfigInput'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+
+  /system/config/test-connection:
+    post:
+      tags:
+        - 系统配置
+      summary: 测试连接
+      description: 测试外部系统连接（企业微信、钉钉、OA）
+      operationId: testConnection
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - type
+              properties:
+                type:
+                  type: string
+                  description: 连接类型
+                  enum: [wechat, dingtalk, oa]
+                config:
+                  type: object
+                  description: 连接配置
+                  additionalProperties: true
+      responses:
+        '200':
+          description: 测试结果
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  data:
+                    type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: true
+                      message:
+                        type: string
+                        example: 连接成功
+                      details:
+                        type: object
+                        description: 详细信息
+
+  /system/notifications:
+    get:
+      tags:
+        - 系统配置
+      summary: 获取通知规则
+      description: 获取系统通知规则配置
+      operationId: getNotifications
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/NotificationRule'
+
+    post:
+      tags:
+        - 系统配置
+      summary: 新增通知规则
+      description: 创建新的通知规则
+      operationId: createNotification
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotificationRuleInput'
+      responses:
+        '200':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+
+  /system/notifications/{id}:
+    put:
+      tags:
+        - 系统配置
+      summary: 更新通知规则
+      description: 更新指定通知规则
+      operationId: updateNotification
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotificationRuleInput'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+
+    delete:
+      tags:
+        - 系统配置
+      summary: 删除通知规则
+      description: 删除指定通知规则
+      operationId: deleteNotification
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 删除成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+
+  /system/logs:
+    get:
+      tags:
+        - 系统配置
+      summary: 获取系统日志
+      description: 获取系统运行日志
+      operationId: getSystemLogs
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: level
+          in: query
+          description: 日志级别
+          schema:
+            type: string
+            enum: [all, info, warning, error]
+        - name: module
+          in: query
+          description: 模块筛选
+          schema:
+            type: string
+        - name: startDate
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: endDate
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  data:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                      list:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/SystemLog'
+
+# ==================== 数据模型 ====================
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT Token认证，格式：`Bearer <token>`
+
+  responses:
+    Unauthorized:
+      description: 未授权
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              code:
+                type: integer
+                example: 401
+              message:
+                type: string
+                example: 未授权，请先登录
+
+    Forbidden:
+      description: 无权限
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              code:
+                type: integer
+                example: 403
+              message:
+                type: string
+                example: 无权限访问
+
+    NotFound:
+      description: 资源不存在
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              code:
+                type: integer
+                example: 404
+              message:
+                type: string
+                example: 资源不存在
+
+    InternalError:
+      description: 服务器错误
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              code:
+                type: integer
+                example: 500
+              message:
+                type: string
+                example: 服务器内部错误
+
+  schemas:
+    SuccessResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 200
+        message:
+          type: string
+          example: 操作成功
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "1"
+        username:
+          type: string
+          example: admin
+        name:
+          type: string
+          example: 管理员
+        email:
+          type: string
+          example: admin@example.com
+        avatar:
+          type: string
+          example: https://example.com/avatar.jpg
+        role:
+          type: string
+          example: super_admin
+        department:
+          type: string
+          example: 总部
+        createdAt:
+          type: string
+          format: date-time
+
+    Conversation:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "conv_001"
+        title:
+          type: string
+          example: 加班申请流程咨询
+        lastMessage:
+          type: string
+          example: 加班申请需要提前一天提交...
+        lastMessageTime:
+          type: string
+          format: date-time
+        messageCount:
+          type: integer
+          example: 10
+        createdAt:
+          type: string
+          format: date-time
+
+    Message:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "msg_001"
+        conversationId:
+          type: string
+        content:
+          type: string
+          example: 如何申请加班？
+        role:
+          type: string
+          enum: [user, assistant]
+          example: user
+        timestamp:
+          type: string
+          format: date-time
+
+    Knowledge:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "kb_001"
+        title:
+          type: string
+          example: 加班申请流程
+        content:
+          type: string
+          example: "1. 提前一天提交申请..."
+        category:
+          type: string
+          example: 人事管理
+        tags:
+          type: array
+          items:
+            type: string
+          example: ["加班", "申请"]
+        status:
+          type: string
+          enum: [draft, published, offline]
+          example: published
+        viewCount:
+          type: integer
+          example: 150
+        createdBy:
+          type: string
+          example: admin
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    KnowledgeInput:
+      type: object
+      required:
+        - title
+        - content
+        - category
+      properties:
+        title:
+          type: string
+        content:
+          type: string
+        category:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          enum: [draft, published, offline]
+
+    Intent:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "intent_001"
+        name:
+          type: string
+          example: 加班申请
+        code:
+          type: string
+          example: overtime_application
+        description:
+          type: string
+          example: 员工咨询加班申请相关流程
+        synonyms:
+          type: array
+          description: 同义词列表
+          items:
+            type: string
+          example: ["申请加班", "加班", "OT申请"]
+        priority:
+          type: integer
+          description: 优先级（1-10）
+          example: 5
+        status:
+          type: string
+          enum: [enabled, disabled]
+          example: enabled
+        createdAt:
+          type: string
+          format: date-time
+
+    IntentInput:
+      type: object
+      required:
+        - name
+        - code
+      properties:
+        name:
+          type: string
+        code:
+          type: string
+        description:
+          type: string
+        synonyms:
+          type: array
+          items:
+            type: string
+        priority:
+          type: integer
+        status:
+          type: string
+          enum: [enabled, disabled]
+
+    Rule:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+          example: 加班关键词规则
+        type:
+          type: string
+          enum: [keyword, context, fallback]
+          example: keyword
+        intentId:
+          type: string
+        config:
+          type: object
+          description: 规则配置
+          additionalProperties: true
+        status:
+          type: string
+          enum: [enabled, disabled]
+        createdAt:
+          type: string
+          format: date-time
+
+    RuleInput:
+      type: object
+      required:
+        - name
+        - type
+        - intentId
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+          enum: [keyword, context, fallback]
+        intentId:
+          type: string
+        config:
+          type: object
+          additionalProperties: true
+        status:
+          type: string
+          enum: [enabled, disabled]
+
+    SQLStatement:
+      type: object
+      properties:
+        id:
+          type: string
+        identifier:
+          type: string
+          example: dept_reimburse_monthly
+          description: 唯一标识
+        name:
+          type: string
+          example: 查询部门月度报销总额
+        category:
+          type: string
+          example: 财务数据
+        sql:
+          type: string
+          example: "SELECT SUM(amount) as total FROM reimburse WHERE dept_id={{dept_id}} AND month={{month}}"
+        parameters:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+                example: dept_id
+              type:
+                type: string
+                enum: [string, number, date]
+              required:
+                type: boolean
+              validation:
+                type: string
+                description: 验证规则
+        status:
+          type: string
+          enum: [enabled, disabled]
+        createdAt:
+          type: string
+          format: date-time
+
+    SQLStatementInput:
+      type: object
+      required:
+        - identifier
+        - name
+        - category
+        - sql
+      properties:
+        identifier:
+          type: string
+        name:
+          type: string
+        category:
+          type: string
+        sql:
+          type: string
+        parameters:
+          type: array
+          items:
+            type: object
+        status:
+          type: string
+
+    SQLLog:
+      type: object
+      properties:
+        id:
+          type: string
+        statementId:
+          type: string
+        statementName:
+          type: string
+        userId:
+          type: string
+        userName:
+          type: string
+        department:
+          type: string
+        parameters:
+          type: object
+        status:
+          type: string
+          enum: [success, failed]
+        error:
+          type: string
+        executionTime:
+          type: number
+          description: 执行时间（毫秒）
+        rowCount:
+          type: integer
+        timestamp:
+          type: string
+          format: date-time
+
+    Department:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "001"
+        code:
+          type: string
+          example: DEPT_001
+        name:
+          type: string
+          example: 市场部
+        parentId:
+          type: string
+          nullable: true
+        level:
+          type: integer
+          example: 1
+        status:
+          type: string
+          enum: [enabled, disabled]
+        createdAt:
+          type: string
+          format: date-time
+
+    DepartmentInput:
+      type: object
+      required:
+        - code
+        - name
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+        parentId:
+          type: string
+          nullable: true
+        status:
+          type: string
+
+    PermissionBinding:
+      type: object
+      properties:
+        id:
+          type: string
+        statementId:
+          type: string
+        statementName:
+          type: string
+        departmentId:
+          type: string
+        departmentName:
+          type: string
+        createdBy:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    AuditLog:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        userName:
+          type: string
+        department:
+          type: string
+        action:
+          type: string
+          enum: [access_granted, access_denied]
+        resource:
+          type: string
+        details:
+          type: string
+        ip:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+
+    Admin:
+      type: object
+      properties:
+        id:
+          type: string
+        username:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        roleId:
+          type: string
+        roleName:
+          type: string
+        status:
+          type: string
+          enum: [enabled, disabled]
+        lastLoginAt:
+          type: string
+          format: date-time
+        lastLoginIp:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    AdminInput:
+      type: object
+      required:
+        - username
+        - name
+        - password
+        - roleId
+      properties:
+        username:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        password:
+          type: string
+          format: password
+        roleId:
+          type: string
+        status:
+          type: string
+
+    Role:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+          example: 超级管理员
+        code:
+          type: string
+          example: super_admin
+        description:
+          type: string
+        permissions:
+          type: array
+          description: 权限列表
+          items:
+            type: string
+          example: ["dashboard", "knowledge", "intelligent", "mysql"]
+        createdAt:
+          type: string
+          format: date-time
+
+    RoleInput:
+      type: object
+      required:
+        - name
+        - code
+        - permissions
+      properties:
+        name:
+          type: string
+        code:
+          type: string
+        description:
+          type: string
+        permissions:
+          type: array
+          items:
+            type: string
+
+    LoginLog:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        username:
+          type: string
+        ip:
+          type: string
+        userAgent:
+          type: string
+        status:
+          type: string
+          enum: [success, failed]
+        failReason:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+
+    DashboardData:
+      type: object
+      properties:
+        metrics:
+          $ref: '#/components/schemas/Metrics'
+        recentActivities:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+              content:
+                type: string
+              timestamp:
+                type: string
+                format: date-time
+        alerts:
+          type: array
+          items:
+            type: object
+            properties:
+              level:
+                type: string
+                enum: [info, warning, error]
+              message:
+                type: string
+              timestamp:
+                type: string
+                format: date-time
+
+    Metrics:
+      type: object
+      properties:
+        totalQueries:
+          type: integer
+          description: 查询总量
+          example: 5234
+        avgResponseTime:
+          type: number
+          format: float
+          description: 平均响应时间（秒）
+          example: 1.5
+        selfServiceRate:
+          type: number
+          format: float
+          description: 自助解决率
+          example: 0.85
+        accuracy:
+          type: number
+          format: float
+          description: 问答准确率
+          example: 0.92
+        comparisonWithYesterday:
+          type: object
+          properties:
+            totalQueries:
+              type: number
+              format: float
+              example: 0.15
+            avgResponseTime:
+              type: number
+              format: float
+              example: -0.05
+            selfServiceRate:
+              type: number
+              format: float
+              example: 0.02
+            accuracy:
+              type: number
+              format: float
+              example: 0.01
+
+    SystemConfig:
+      type: object
+      properties:
+        basic:
+          type: object
+          properties:
+            companyName:
+              type: string
+              example: XX企业
+            systemName:
+              type: string
+              example: 智能客服助手
+        interfaces:
+          type: object
+          properties:
+            wechat:
+              type: object
+              properties:
+                enabled:
+                  type: boolean
+                corpId:
+                  type: string
+                corpSecret:
+                  type: string
+            dingtalk:
+              type: object
+              properties:
+                enabled:
+                  type: boolean
+                appKey:
+                  type: string
+                appSecret:
+                  type: string
+            oa:
+              type: object
+              properties:
+                enabled:
+                  type: boolean
+                apiUrl:
+                  type: string
+                apiKey:
+                  type: string
+
+    SystemConfigInput:
+      type: object
+      properties:
+        basic:
+          type: object
+        interfaces:
+          type: object
+
+    NotificationRule:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+          example: SQL执行失败通知
+        channel:
+          type: string
+          enum: [wechat, email]
+          example: wechat
+        event:
+          type: string
+          enum: [sql_failed, permission_denied, knowledge_imported]
+          example: sql_failed
+        recipients:
+          type: array
+          items:
+            type: string
+        enabled:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    NotificationRuleInput:
+      type: object
+      required:
+        - name
+        - channel
+        - event
+        - recipients
+      properties:
+        name:
+          type: string
+        channel:
+          type: string
+        event:
+          type: string
+        recipients:
+          type: array
+          items:
+            type: string
+        enabled:
+          type: boolean
+
+    SystemLog:
+      type: object
+      properties:
+        id:
+          type: string
+        level:
+          type: string
+          enum: [info, warning, error]
+        module:
+          type: string
+          example: knowledge
+        message:
+          type: string
+        details:
+          type: object
+        userId:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+
+security:
+  - bearerAuth: []
+
