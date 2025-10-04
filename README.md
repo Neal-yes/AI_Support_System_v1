@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
+![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)
 ![React](https://img.shields.io/badge/React-18.x-61dafb.svg)
 ![Vite](https://img.shields.io/badge/Vite-5.x-646cff.svg)
 ![TailwindCSS](https://img.shields.io/badge/TailwindCSS-3.x-38bdf8.svg)
@@ -164,11 +164,11 @@ AI_Support_System_v1/
 │   ├── package.json                # 依赖配置
 │   └── README.md                   # 前端说明
 │
-├── 📁 backend/                     # 后端项目（待开发）
-│   ├── README.md                   # 后端说明
+├── 📁 backend/                     # 后端项目
+│   ├── openapi.yaml                # API接口规范（48个接口）
+│   ├── 技术方案.md                  # 后端技术方案
 │   └── .gitkeep                    # 目录占位
 │
-├── package.json                    # 根目录脚本
 ├── .gitignore                      # Git忽略配置
 └── README.md                       # 项目总说明（本文件）
 ```
@@ -189,27 +189,25 @@ AI_Support_System_v1/
 | ESLint | 9.17.0 | 代码检查 |
 | Prettier | 3.4.2 | 代码格式化 |
 
-### 后端（待开发）
+### 后端
 
-可选技术栈：
+| 技术 | 版本 | 说明 |
+|------|------|------|
+| Python | 3.10+ | 编程语言 |
+| FastAPI | 0.115+ | Web框架 |
+| PostgreSQL | 15+ | 关系型数据库 |
+| Redis | 7+ | 缓存数据库 |
+| Qdrant | 1.11+ | 向量数据库 |
+| OpenSearch | 2.13+ | 搜索引擎（BM25） |
+| Ollama | latest | 大模型服务（qwen2.5:14b） |
+| Haystack | 2.x | RAG框架 |
+| Celery | 5+ | 异步任务队列 |
 
-**方案1: Node.js**
-- Express / Koa
-- MySQL2 / Sequelize
-- JWT
-- Joi (数据验证)
-
-**方案2: Python**
-- Flask / FastAPI
-- PyMySQL / SQLAlchemy
-- JWT
-- Pydantic (数据验证)
-
-**方案3: Java**
-- Spring Boot
-- MyBatis
-- Spring Security
-- Hibernate Validator
+**AI技术栈**:
+- 🤖 **Embedding模型**: BAAI/bge-m3（1024维）
+- 🔍 **Reranker模型**: BAAI/bge-reranker-large
+- 💬 **大模型**: Qwen2.5 14B Instruct
+- 📚 **RAG策略**: Hybrid Retrieval（BM25 + Vector）+ Cross-Encoder Reranking
 
 ---
 
@@ -231,9 +229,9 @@ cd AI_Support_System_v1
 cd frontend
 npm install
 
-# 如果需要开发后端
+# 安装后端依赖（后端开发时）
 cd ../backend
-npm install  # 或 pip install -r requirements.txt（Python）
+pip install -r requirements.txt  # Python环境
 ```
 
 ### 启动开发服务器
@@ -243,9 +241,9 @@ npm install  # 或 pip install -r requirements.txt（Python）
 cd frontend
 npm run dev
 
-# 终端2 - 启动后端（后端开发完成后）
+# 终端2 - 启动后端（后端开发时）
 cd backend
-npm run dev  # 或 python app.py（Python）
+uvicorn main:app --reload --port 8080
 ```
 
 ### 访问应用
@@ -283,7 +281,25 @@ npm run preview
 
 ### 后端开发
 
-详见 [后端开发文档](./backend/README.md)
+```bash
+cd backend
+
+# 启动开发服务器
+uvicorn main:app --reload --port 8080
+
+# 运行测试
+pytest
+
+# 代码检查
+flake8 .
+
+# 类型检查
+mypy .
+```
+
+详见：
+- [API接口规范](./backend/openapi.yaml) - 48个接口定义
+- [后端技术方案](./backend/技术方案.md) - 完整技术方案
 
 ### 环境变量配置
 
@@ -295,13 +311,29 @@ VITE_APP_TITLE=企业智能客服系统
 
 #### 后端 (`backend/.env`)
 ```env
-PORT=8080
-DB_HOST=localhost
-DB_PORT=3306
-DB_USER=root
-DB_PASSWORD=your_password
-DB_NAME=ai_support_system
-JWT_SECRET=your_secret_key
+# 应用配置
+APP_ENV=development
+API_PORT=8080
+
+# 数据库
+DATABASE_URL=postgresql://ai_user:password@localhost:5432/ai_support_system
+REDIS_URL=redis://localhost:6379/0
+
+# 向量库和搜索
+QDRANT_URL=http://localhost:6333
+OPENSEARCH_URL=http://localhost:9200
+
+# Ollama
+OLLAMA_URL=http://localhost:11434
+OLLAMA_MODEL=qwen2.5:14b-instruct
+
+# Embedding模型
+EMBEDDING_MODEL_NAME=BAAI/bge-m3
+EMBEDDING_DEVICE=cpu
+
+# JWT
+JWT_SECRET_KEY=your-secret-key-change-in-production
+JWT_ACCESS_TOKEN_EXPIRE_MINUTES=120
 ```
 
 ### 代码规范
@@ -335,25 +367,32 @@ git commit -m "refactor: 重构XXX模块"
 
 ---
 
-## 📡 API接口规划
+## 📡 API接口文档
 
-后端开发时需要实现以下接口（详见 `backend/README.md`）：
+后端API采用OpenAPI 3.0.3规范定义，共**48个接口**，覆盖9大功能模块。
 
 ### 核心模块
 
-| 模块 | 接口示例 | 说明 |
-|------|----------|------|
-| **认证** | `POST /api/auth/login` | 用户登录、登出、验证 |
-| **对话** | `POST /api/chat/message` | 发送消息、获取历史 |
-| **知识库** | `GET /api/knowledge/list` | 知识CRUD、导入导出 |
-| **智能配置** | `GET /api/intelligent/intents` | 意图管理、规则配置 |
-| **MySQL配置** | `GET /api/mysql/statements` | SQL语句管理、测试 |
-| **数据权限** | `GET /api/permission/departments` | 权限绑定、审计 |
-| **用户管理** | `GET /api/users/list` | 用户CRUD、角色管理 |
-| **数据统计** | `GET /api/analytics/dashboard` | 数据看板、报表 |
-| **系统配置** | `GET /api/system/config` | 系统参数配置 |
+| 模块 | 接口数 | 接口示例 | 说明 |
+|------|--------|----------|------|
+| **认证** | 4 | `POST /api/auth/login` | 用户登录、登出、Token验证/刷新 |
+| **对话** | 6 | `POST /api/chat/message` | 发送消息、获取历史、用户反馈 |
+| **知识库** | 9 | `GET /api/knowledge/list` | 知识CRUD、导入导出、预览、重建索引 |
+| **智能配置** | 7 | `GET /api/intelligent/intents` | 意图管理、规则配置、测试 |
+| **MySQL配置** | 8 | `GET /api/mysql/statements` | SQL语句管理、测试、执行、日志 |
+| **数据权限** | 7 | `GET /api/permission/departments` | 部门管理、权限绑定、审计日志 |
+| **用户管理** | 12 | `GET /api/users/admins` | 用户CRUD、角色管理、登录日志 |
+| **数据统计** | 6 | `GET /api/analytics/dashboard` | 数据看板、报表导出 |
+| **系统配置** | 10 | `GET /api/system/config` | 系统配置、通知规则、日志、监控 |
 
-详细接口文档见 [后端说明](./backend/README.md)
+### 数据模型
+
+定义了30+数据模型，包括：
+- 核心业务：User, Role, Department, Conversation, Message, Knowledge
+- 智能配置：Intent, Rule, SQLStatement, Permission
+- 统计分析：Metrics, Dashboard, AuditLog, LoginLog
+
+详细接口文档见 [OpenAPI规范](./backend/openapi.yaml)
 
 ---
 
@@ -395,19 +434,44 @@ server {
 
 ### 后端部署
 
-详见 [后端部署文档](./backend/README.md)
-
-### Docker部署（可选）
+#### 方式1: Docker Compose（推荐）
 
 ```bash
-# 构建镜像
-docker-compose build
+cd backend
 
-# 启动服务
+# 启动所有服务
 docker-compose up -d
+
+# 查看日志
+docker-compose logs -f
+
+# 停止服务
+docker-compose down
 ```
 
-> 注：Docker配置文件待后端完成后创建
+包含服务：
+- PostgreSQL（数据库）
+- Redis（缓存）
+- Qdrant（向量库）
+- OpenSearch（搜索引擎）
+- Ollama（大模型）
+- FastAPI（应用服务）
+- Nginx（反向代理）
+
+#### 方式2: 手动部署
+
+```bash
+# 安装依赖
+pip install -r requirements.txt
+
+# 初始化数据库
+alembic upgrade head
+
+# 启动服务
+uvicorn main:app --host 0.0.0.0 --port 8080 --workers 4
+```
+
+详见 [后端技术方案](./backend/技术方案.md)
 
 ---
 
@@ -464,9 +528,35 @@ server: {
 
 ## 📝 更新日志
 
-### v1.0.0 (2025-01-05)
+### v1.1.0 (2025-01-05)
 
-#### ✨ 新增功能
+#### 📚 后端文档完成
+- ✅ 完成OpenAPI 3.0.3规范（48个接口定义）
+- ✅ 完成后端技术方案文档（1,162行）
+  - 核心技术栈确定（Python + FastAPI + Haystack）
+  - RAG架构设计（混合检索 + 重排序）
+  - 完整数据库设计（SQL Schema）
+  - Docker部署方案
+  - 监控和安全方案
+- ✅ 前端README文档完善（1,942行）
+  - 详细架构说明
+  - 核心功能解析
+  - 多种部署方案
+  - 性能优化指南
+- ✅ 前后端接口100%对齐验证通过
+
+#### 🔧 技术栈确定
+- **后端框架**: Python 3.10 + FastAPI
+- **数据库**: PostgreSQL + Redis
+- **向量库**: Qdrant (HNSW)
+- **搜索引擎**: OpenSearch (BM25)
+- **大模型**: Ollama (Qwen2.5 14B)
+- **RAG框架**: Haystack 2
+- **Embedding**: bge-m3 (1024维)
+
+### v1.0.0 (2025-01-04)
+
+#### ✨ 前端功能完成
 - ✅ 完成登录页面设计与实现
 - ✅ 完成智能对话页面（搜索、删除、历史记录）
 - ✅ 完成管理后台8个核心模块
@@ -479,18 +569,17 @@ server: {
   - 数据统计
   - 系统配置
 - ✅ 实现所有交互功能（模态框、表单、筛选等）
-- ✅ 统一自定义组件设计（下拉框、通知等）
+- ✅ 统一自定义组件设计（Select、Modal、Toast等）
 
 #### 🐛 问题修复
-- ✅ 修复下拉框在模态框中被遮挡问题（React Portal实现）
+- ✅ 修复下拉框在模态框中被遮挡（React Portal）
 - ✅ 修复路由跳转问题
 - ✅ 优化所有交互效果
 
-#### 🎨 优化改进
+#### 🎨 项目规范化
 - ✅ 项目结构规范化（前后端分离）
 - ✅ 代码规范工具配置（ESLint、Prettier）
 - ✅ 添加完整的配置文件
-- ✅ 优化UI交互体验
 - ✅ 统一视觉设计风格
 
 ---
